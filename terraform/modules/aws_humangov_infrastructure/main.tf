@@ -10,27 +10,27 @@ resource "aws_security_group" "state_ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port   = 5000
-    to_port     = 5000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+    ingress {
+      from_port   = 5000
+      to_port     = 5000
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
 
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    security_groups = ["sg-06bf173e41438454f"]
-  }
+    ingress {
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      security_groups = ["sg-06bf173e41438454f"]
+    }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    egress {
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
-}
 
 resource "aws_instance" "state_ec2" {
   ami           = "ami-007855ac798b5175e"
@@ -38,6 +38,19 @@ resource "aws_instance" "state_ec2" {
   key_name = "humangov-ec2-key"
   vpc_security_group_ids = [aws_security_group.state_ec2_sg.id]
   iam_instance_profile = aws_iam_instance_profile.s3_dynamodb_full_access_instance_profile.name
+
+    provisioner "local-exec" {
+	  command = "sleep 30; ssh-keyscan ${self.private_ip} >> ~/.ssh/known_hosts"
+	}
+
+	provisioner "local-exec" {
+	  command = "echo ${var.state_name} id=${self.id} ansible_host=${self.private_ip} ansible_user=ubuntu us_state=${var.state_name} aws_region=${var.region} aws_s3_bucket=${aws_s3_bucket.state_s3.bucket} aws_dynamodb_table=${aws_dynamodb_table.state_dynamodb.name} >> /etc/ansible/hosts"
+	}
+
+	provisioner "local-exec" {
+	  command = "sed -i '/${self.id}/d' /etc/ansible/hosts"
+	  when = destroy
+	}
 
   tags = {
     Name = "humangov-${var.state_name}"
